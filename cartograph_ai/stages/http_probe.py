@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 import httpx
 
-from cartograph_ai import __version__
+from cartograph_ai._version import __version__
 
 DEFAULT_USER_AGENT = (
     f"cartograph-ai/{__version__} (+https://github.com/AgentXaGent/cartograph-ai)"
@@ -57,6 +57,10 @@ _LOC_RE = re.compile(r"<loc>\s*([^<]+?)\s*</loc>", re.IGNORECASE)
 # Sitemap fetch hard caps so a 100 MB sitemap does not blow up the probe.
 _SITEMAP_MAX_BYTES = 2_000_000  # 2 MB per sitemap fetched
 _SITEMAP_MAX_FETCH = 3  # at most 3 sitemap URLs touched in Stage 1
+
+# Cap on raw HTML body captured for Stage 2. 5 MB is generous for
+# real-world pages; runaway responses get truncated.
+_BODY_MAX_BYTES = 5_000_000
 
 
 def probe_http(
@@ -101,6 +105,9 @@ def probe_http(
         "redirect_chain": [],
         "headers": {},
         "http_version": None,
+        "body": None,
+        "body_size_bytes": 0,
+        "body_truncated": False,
         "robots_txt": {"present": False},
         "sitemaps": [],
         "error": None,
@@ -116,6 +123,13 @@ def probe_http(
         findings["final_url"] = str(response.url)
         findings["status"] = response.status_code
         findings["http_version"] = response.http_version
+        raw = response.content or b""
+        findings["body_size_bytes"] = len(raw)
+        if len(raw) > _BODY_MAX_BYTES:
+            findings["body"] = raw[:_BODY_MAX_BYTES].decode("utf-8", errors="ignore")
+            findings["body_truncated"] = True
+        else:
+            findings["body"] = raw.decode("utf-8", errors="ignore")
         findings["redirect_chain"] = [
             {"url": str(h.url), "status": h.status_code, "to": h.headers.get("location")}
             for h in response.history

@@ -10,6 +10,7 @@ Public API::
 See https://github.com/AgentXaGent/cartograph-ai for full docs.
 """
 
+from cartograph_ai._version import __version__
 from cartograph_ai.exceptions import (
     AntiBotDetectedError,
     AuthWalledError,
@@ -21,11 +22,32 @@ from cartograph_ai.exceptions import (
     OutputValidationError,
     ProbeTimeoutError,
 )
-
-__version__ = "0.1.0"
+from cartograph_ai.probe import (
+    LOW_CONFIDENCE_THRESHOLD,
+    ProbeOptions,
+    probe,
+)
+from cartograph_ai.schema import (
+    Classification,
+    ClaudeResponse,
+    EndpointDescriptor,
+    ExtractionStrategy,
+    ProbeResult,
+)
 
 __all__ = [
     "__version__",
+    # Probe entry point
+    "probe",
+    "ProbeOptions",
+    "LOW_CONFIDENCE_THRESHOLD",
+    # Schema models (re-exported for typing convenience)
+    "Classification",
+    "ClaudeResponse",
+    "EndpointDescriptor",
+    "ExtractionStrategy",
+    "ProbeResult",
+    # Exception types
     "AntiBotDetectedError",
     "AuthWalledError",
     "CartographError",

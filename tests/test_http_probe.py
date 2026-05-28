@@ -263,3 +263,35 @@ def test_probe_captures_4xx(client):
 def test_default_user_agent_identifies_cartograph():
     assert "cartograph-ai" in DEFAULT_USER_AGENT
     assert "github.com/AgentXaGent/cartograph-ai" in DEFAULT_USER_AGENT
+
+
+# ---------------- Body capture -----------------------------------------
+
+
+@respx.mock
+def test_probe_captures_body_on_200(client):
+    body = "<html><body><h1>Sasaki</h1></body></html>"
+    respx.get("https://x.com/").mock(return_value=httpx.Response(200, content=body))
+    respx.get("https://x.com/robots.txt").mock(return_value=httpx.Response(404))
+    respx.get("https://x.com/sitemap.xml").mock(return_value=httpx.Response(404))
+    respx.get("https://x.com/sitemap_index.xml").mock(return_value=httpx.Response(404))
+
+    out = probe_http("https://x.com/", client=client)
+    assert out["body"] == body
+    assert out["body_size_bytes"] == len(body)
+    assert out["body_truncated"] is False
+
+
+@respx.mock
+def test_probe_truncates_large_body(client):
+    from cartograph_ai.stages.http_probe import _BODY_MAX_BYTES
+    big = "<html>" + ("x" * (_BODY_MAX_BYTES + 1000)) + "</html>"
+    respx.get("https://x.com/").mock(return_value=httpx.Response(200, content=big))
+    respx.get("https://x.com/robots.txt").mock(return_value=httpx.Response(404))
+    respx.get("https://x.com/sitemap.xml").mock(return_value=httpx.Response(404))
+    respx.get("https://x.com/sitemap_index.xml").mock(return_value=httpx.Response(404))
+
+    out = probe_http("https://x.com/", client=client)
+    assert out["body_truncated"] is True
+    assert len(out["body"]) == _BODY_MAX_BYTES
+    assert out["body_size_bytes"] == len(big)
